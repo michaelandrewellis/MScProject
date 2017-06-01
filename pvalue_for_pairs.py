@@ -1,0 +1,1 @@
+df1_new['pvalue'] = [400*stats.binom_test(z,df1_new['count'].sum(),p=((df2['bind1'].str.count(x).sum()+df2['bind2'].str.count(x).sum())/2)*((df2['bind1'].str.count(y).sum()+df2['bind2'].str.count(y).sum())/2)/(df2.shape[0]*df2.shape[0])) for x,y,z in zip(df1_new['bind1'],df1_new['bind2'],df1_new['count'])]
