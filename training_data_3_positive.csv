@@ -1,7 +1,7 @@
 ,seq_1,seq_2,seq_3,seq_4,seq_5,seq_6,seq_7,seq_8,seq_9,seq_10,seq_11,seq_12,length1,length2,length,n_term,c_term,bind1,bind2,distance,reversed,cleavage1_0,cleavage1_1,cleavage1_2,cleavage1_3,cleavage1_4,cleavage3_0,cleavage3_1,cleavage3_2,cleavage3_3,cleavage3_4,cleavage2_0,cleavage2_1,cleavage2_2,cleavage2_3,cleavage2_4,cleavage4_0,cleavage4_1,cleavage4_2,cleavage4_3,cleavage4_4,output
 0,L,G,S,I,G,L,T,A,L,,,,1,8,9,L,L,L,G,2,False,Y,M,Y,L,A,Y,L,A,G,S,M,Y,L,A,G,T,A,L,S,A,1
 1,Q,P,P,P,A,L,G,A,L,,,,4,5,9,Q,L,P,A,9,False,M,G,R,Q,P,F,P,G,A,L,P,P,P,P,P,G,A,L,E,Q,1
-2,Q,A,K,G,A,P,L,A,L,,,,6,3,9,Q,L,P,L,9,False,Q,A,L,Q,A,E,D,L,L,A,G,A,P,L,A,L,A,L,Y,P,1
+2,Q,A,K,G,A,P,L,A,L,,,,6,3,9,Q,L,P,L,9,False,Q,A,L,Q,A,E,D,L,L,A,,L,AG,A,P,L,A,L,Y,P,1
 3,L,S,G,L,E,V,A,A,I,,,,5,4,9,L,I,E,V,3,False,Q,R,K,L,S,E,R,D,V,A,G,L,E,R,D,A,A,I,Q,A,1
 4,V,T,G,V,I,L,S,A,L,,,,3,6,9,V,L,G,V,6,True,L,R,A,V,T,Q,R,S,V,I,V,T,G,F,S,S,A,L,I,L,1
 5,V,A,G,L,K,G,K,V,I,,,,6,3,9,V,I,G,K,2,False,P,M,L,V,A,K,G,L,K,V,L,K,G,L,K,K,V,I,D,V,1

@@ -1,23 +1,44 @@
 import pandas as pd
 import scipy.stats as stats
+import matplotlib.pyplot as plt
 aa_dict = {'S': 0.083207136799280254, 'V': 0.05969329362753354, 'A': 0.070178284858173401, 'C': 0.022970256771492441, 'Q': 0.047658794128419044, 'P': 0.063103624877869691, 'N': 0.035881471493242882, 'T': 0.053571477460770595, 'G': 0.065702594916323465, 'M': 0.021322187589502981, 'X': 3.3560167684260995e-06, 'L': 0.099593771833428171, 'W': 0.012186050151078161, 'E': 0.071012696606281039, 'F': 0.03651443391901419, 'Y': 0.026648097884764452, 'H': 0.026268603041240058, 'I': 0.043406014352977189, 'K': 0.057270072888268402, 'D': 0.047394198701097866, 'R': 0.056413582082473761}
 amino_acids = ['A','R','N','D','C','Q','E','G','H','I','L','K','M','F','P','S','T','W','Y','V']
 
-df = pd.read_csv('training_data_3_positive.csv',index_col=0)
+spliced_peptides = 'training_data_3_positive.csv'
+nonspliced_peptides = 'csv_files_parsed_peptides/nonspliced_peptides_with_cleavage_sites.csv'
+
+df = pd.read_csv(spliced_peptides, index_col=0)
 df = df[df['length']==9].drop(['seq_10','seq_11','seq_12'],axis=1)
 df = df.dropna()
 df.drop_duplicates(inplace=True)
 
+def get_distances(df):
+    df = df[['distance','reversed']]
+    df = df[df['reversed']==False]
+    df['distance'].value_counts().sort_index().plot(kind='bar')
+    plt.show()
+
 def get_pairs(df):
+    df=pd.DataFrame.from_csv('csv_files_parsed_peptides/all_unspliced_peptides.csv',index_col=None,header=None)
+    df.columns = ['sequence','protein','start','end','length']
+    pairlist = []
+    for i in df['sequence']:
+        for j in range(8):
+            pair=i[j:j+2]
+            pairlist.append(pair)
+    df_pair=pd.Series(pairlist)
+    df_pair = df_pair.value_counts()
+    df_pair.to_frame().to_csv('splicing_rules/pair_count_nonspliced.csv')
     pair_table = []
+    '''
     # limit to peptides not affected by achor preferences
-    df_binding = df[(df['length1'].isin([3,4,5,6,7]))]
+    df_binding = df
     total = df_binding.shape[0]
     for i in amino_acids:
         for j in amino_acids:
             pair_prob = aa_dict[i]*aa_dict[j]
             try:
-                pair_count = df_binding.groupby(['seq_2','seq_9']).count().loc[i,j][0]
+                pair_count = df_binding.groupby(['bind1','bind2']).count().loc[i,j][0]
             except:
                 pair_count=0
             pair_freq = pair_count/total
@@ -25,8 +46,9 @@ def get_pairs(df):
             
     df = pd.DataFrame(pair_table)
     df.columns = ['pair','count','observed','expected']
-    df['p-value'] = [stats.binom_test(x,total,y,alternative='greater') for x,y, in zip(df['count'],df['expected'])]
-    df.sort_values(by='p-value').to_csv('anchor_points_2_9_excl_binding.csv',header=True,index=False)
+    df[['pair','count']].to_csv('binding_pair_count_all_6_6_2017.csv')'''
+    #df['p-value'] = [stats.binom_test(x,total,y,alternative='greater') for x,y, in zip(df['count'],df['expected'])]
+   # df.sort_values(by='p-value').to_csv('anchor_points_2_9_excl_binding.csv',header=True,index=False)
 
 def get_residues(df):
     aa_table = []
@@ -35,7 +57,7 @@ def get_residues(df):
     for i in amino_acids:
         aa_prob = aa_dict[i]
         try:
-            aa_count = df_cleavage.groupby(['cleavage4_3']).count().loc[i][0]
+            aa_count = df_cleavage.groupby(['bind2']).count().loc[i][0]
         except:
             aa_count=0
         aa_freq = aa_count/total
@@ -43,7 +65,7 @@ def get_residues(df):
     df = pd.DataFrame(aa_table)
     df.columns = ['aa','count','observed','expected']
     df['p-value'] = [stats.binom_test(x,total,y,alternative='greater') for x,y, in zip(df['count'],df['expected'])]
-    df.sort_values(by='p-value').to_csv('splicing_rules/cleavage_frequencies_right_residue_second_peptide.csv',header=True,index=False)
+    df.sort_values(by='p-value').to_csv('splicing_rules/bind_frequencies_right_residue_latest.csv',header=True,index=False)
     
 
 def get_unspliced_residues():
@@ -94,7 +116,8 @@ def find_anchor_residues(df):
     df.to_csv('all_anchor_triples_test.csv', header=True, index=False)
     df['p-value'] = [stats.binom_test(x, total, y, alternative='greater') for x, y, in zip(df['count'], df['expected'])]
     df.sort_values(by='p-value').to_csv('all_anchor_triples_using_actual_frequencies.csv', header=True, index=False)
-
+    
+    
 def binding_overrep():
     df_spliced = pd.DataFrame.from_csv('splicing_rules/residue_frequencies_all_positions_spliced_and_unspliced.csv',index_col=None)
     df_spliced = df_spliced[df_spliced['type']=='spliced'].drop('type',axis=1)
@@ -129,6 +152,27 @@ def binding_pair_overrep():
     df.sort_values(by='p-value').to_csv('binding_pair_frequency_relative_to_non_binding_in_spliced_peptides.csv', header=True, index=False)
     print(df)
     
-get_residues(df)
+def proline_analysis(df):
+    df = df[(df['seq_2']=='R')]
+    df = df.groupby('length1').count()['output']
+    df.plot(kind='bar',use_index=False)
+    plt.show()
+
+def get_gap(df):
+    df = df[df['distance']==2]
+    df = df[df['reversed']==False]
+    df = df['cleavage3_2'].value_counts().to_frame()
+    df['frequency'] = df['cleavage3_2']/df['cleavage3_2'].sum()
+    df_aa = pd.DataFrame.from_dict(aa_dict,orient='index')
+    df = pd.merge(df,df_aa,left_index=True,right_index=True)
+    df.columns = ['f_obs','frequency','proteome_frequency']
+    df['f_exp'] = df['proteome_frequency']*df['f_obs'].sum()
+    df[['f_exp','f_obs']].plot(kind='bar')
+    plt.show()
+    
+    
+get_gap(df)
 #get_unspliced_residues()
 #binding_pair_overrep()
+#find_anchor_residues(df)
+#proline_analysis(df)

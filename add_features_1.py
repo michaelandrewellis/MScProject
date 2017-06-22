@@ -1,7 +1,7 @@
 import csv
 import pandas as pd
-input = 'csv_files_parsed_peptides/all_spliced_peptides.csv'
-output = 'training_data_3_positive.csv'
+input = 'csv_files_parsed_peptides/all_unspliced_peptides.csv'
+output = 'csv_files_parsed_peptides/nonspliced_peptides_with_cleavage_sites.csv' # 'training_data_3_positive.csv'
 amino_acids = ['A','R','N','D','C','Q','E','G','H','I','L','K','M','F','P','S','T','W','Y','V']
 
 def add_features(input,output):
@@ -96,5 +96,46 @@ def add_features_df2(input):
     #df[['seq_1','seq_2','seq_3','seq_4','seq_5','seq_6','seq_7','seq_8','seq_9','seq_10','seq_11','seq_12']] = [list(x) for x in df['sequence']]
     print(df['length'].value_counts())
     pd.get_dummies(final_df.applymap(str),dummy_na=True).to_csv('nn_positive_input.csv')
+
+
+def add_features_df_unspliced(input, output):
+    df_proteome = pd.read_csv('netchopoutput.csv')
+    df_proteome.columns = ['position', 'aa', 'cleavage', 'probability', 'protein']
+    df_proteome = df_proteome[['position', 'aa', 'protein']]
+    df_proteome.set_index(['protein', 'position'])
+    df = pd.read_csv(input)
+    df.columns = ["sequence", "protein", "startpos", "endpos","length"]
+    df['n_term'] = [x[0] for x in df['sequence']]
+    df['c_term'] = [x[-1] for x in df['sequence']]
+
+    df_cleavages = pd.DataFrame()
+    for site, position in zip(['cleavage1'], ['startpos']):
+        for i in range(5):  # End residue is immediately after central resiude
+            df_new = pd.DataFrame([[x - 3 + i, "sp|" + y + "|"] for x, y in zip(df[position], df['protein'])])
+            df_new.columns = ['position', 'protein']
+            col_name = site + "_" + str(i)
+            df_cleavages[col_name] = pd.merge(df_new, df_proteome, how="left", on=['protein', 'position'])['aa']
+    for site, position in zip(['cleavage2'],['endpos']):
+        for i in range(5):  # This time the end residue is the central residue
+            df_new = pd.DataFrame([[x - 2 + i, "sp|" + y + "|"] for x, y in zip(df[position], df['protein'])])
+            df_new.columns = ['position', 'protein']
+            col_name = site + "_" + str(i)
+            df_cleavages[col_name] = pd.merge(df_new, df_proteome, how="left", on=['protein', 'position'])['aa']
+    '''for index, row in df.iterrows():
+        protein = "sp|"+ row['protein'] + "|"
+        df_protein = df_proteome[(df_proteome['protein']==protein)]
+        cleavage1 = df_protein[(df_protein['position']<=row['startpos1'])&(df_protein['position']>=row['startpos1']-2)].iloc[:,1].tolist()
+        print(cleavage1)'''
+
+    sequence_df = pd.DataFrame([list(x) for x in df['sequence']])
+    sequence_df.columns = ['seq_1', 'seq_2', 'seq_3', 'seq_4', 'seq_5', 'seq_6', 'seq_7', 'seq_8', 'seq_9', 'seq_10',
+                           'seq_11', 'seq_12']
+    final_df = pd.concat([sequence_df, df[
+        ['length', 'n_term', 'c_term',]], df_cleavages],
+                         axis=1)
+    # df[['seq_1','seq_2','seq_3','seq_4','seq_5','seq_6','seq_7','seq_8','seq_9','seq_10','seq_11','seq_12']] = [list(x) for x in df['sequence']]
+    #final_df['output'] = 1
+    # pd.get_dummies(final_df.applymap(str),dummy_na=True).to_csv('nn_positive_input.csv')
+    final_df.to_csv(output)
     
-add_features_df(input,output)
+add_features_df_unspliced(input,output)
