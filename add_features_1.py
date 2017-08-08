@@ -31,6 +31,13 @@ def add_features(input,output):
 
             
 def add_features_df(input,output):
+    '''
+    
+    :param input: csv file with columns sequence, SwissProt ID, start position of n-terminal peptide, 
+    end position of n-terminal peptide, start position of c-terminal peptide, end position of c-terminal peptide
+    :param output: 
+    :return: 
+    '''
     df_proteome = pd.read_csv('netchopoutput.csv')
     df_proteome.columns = ['position','aa','cleavage','probability','protein']
     df_proteome = df_proteome[['position','aa','protein']]
@@ -138,4 +145,14 @@ def add_features_df_unspliced(input, output):
     # pd.get_dummies(final_df.applymap(str),dummy_na=True).to_csv('nn_positive_input.csv')
     final_df.to_csv(output)
     
-add_features_df_unspliced(input,output)
+def add_binding_prediction_to_training_data(input,reference,output):
+    df = pd.read_csv(input,index_col=0)
+    df = df.drop_duplicates()
+    df['peptide'] = df.iloc[:,0:9].apply(lambda x: ''.join(x), axis=1)
+    df2 = pd.read_csv(reference)[['peptide','ic50']]
+    df_new = pd.merge(df,df2,how='inner',on='peptide')
+    df_new = df_new.drop('peptide',axis=1)
+    df_new.to_csv('training_data_3_positive_with_binding.csv')
+    
+add_binding_prediction_to_training_data('training_data_3_negative.csv','MHC_binding/GRLCL_spliced_9mers_binding_only_best.csv')
+#add_features_df('csv_files_parsed_peptides/GRLCL_spliced_peptides_new.csv','test.csv')

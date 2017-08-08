@@ -50,7 +50,7 @@ def cleavage_positions():
     f, axes = plt.subplots(5, 1, sharey=True)
     for i in range(5):
         pos = positions[i]
-        df1 = pd.DataFrame.from_csv('splicing_rules/cleavage_frequencies_'+pos+'_residue.csv', index_col=None,
+        df1 = pd.DataFrame.from_csv('splicing_rules/cleavage_frequencies_'+pos+'_residue_first_peptide.csv', index_col=None,
                                     header=0)
         df2 = pd.DataFrame.from_csv('splicing_rules/cleavage_frequencies_'+pos+'_residue_nonspliced.csv', index_col=None,
                                     header=0)
@@ -112,4 +112,4 @@ def plot_counts():
     df.plot(kind='bar')
     plt.show()
 
-plot_counts()
+cleavage_positions()
