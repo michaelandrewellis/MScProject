@@ -1,0 +1,5 @@
+,length1,binding1_2,binding1_1,binding2_1,binding2_2,reversed,distance,seq_1,seq_2,seq_3,seq_4,seq_5,seq_6,seq_7,seq_8,seq_9
+0,3,T,K,Q,L,False,20,R,T,K,Q,L,Y,P,E,W
+1,5,A,S,P,R,False,20,N,T,Y,A,S,P,R,F,K
+2,8,A,H,R,,True,2,R,S,Y,V,P,L,A,H,R
+
