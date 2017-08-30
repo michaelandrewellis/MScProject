@@ -144,10 +144,10 @@ def create_training_data_with_cleavage(fin,fout,cell_line=None):
     df_output.drop(['cleavage1','cleavage2','cleavage3','cleavage4'],inplace=True,axis=1)
     df_output.to_csv(fout)
 
-def add_ic50(fin,fout):
+def add_ic50(fin,binding_file,fout):
     df = pd.DataFrame.from_csv(fin)    
     df['peptide'] = df[['seq_1','seq_2','seq_3','seq_4','seq_5','seq_6','seq_7','seq_8','seq_9']].sum(axis=1)
-    df_ic50 = pd.DataFrame.from_csv('GRLCL_spliced_9mers_binding_only_best.csv')
+    df_ic50 = pd.DataFrame.from_csv(binding_file)
     print(df)
 
 def create_allele_specific_training_data(allele,all_training_data_input_file,allele_training_data_output_file):
@@ -178,11 +178,48 @@ def create_negative_training_data_with_binding(allele,all_training_data,output_f
     df.drop(['peptide'], inplace=True, axis=1)
     df.to_csv(output_file)
 
+def create_negative_training_data_with_binding_all(allele,all_training_data,output_file):
+    df = pd.DataFrame.from_csv(all_training_data)
+    df_binding = pd.DataFrame.from_csv('binding_predictions/invented_binding_'+allele+'.txt',sep='\t')
+    df['peptide'] = df[['seq_1', 'seq_2', 'seq_3', 'seq_4', 'seq_5', 'seq_6', 'seq_7', 'seq_8', 'seq_9']].sum(axis=1)
+    df = df[df.peptide.isin(set(df_binding.peptide))]
+    df = pd.merge(df,df_binding[['peptide','ic50']],left_on='peptide',right_on='peptide')
+    df.drop(['peptide'], inplace=True, axis=1)
+    df.to_csv(output_file)
+   
+def get_cleavage_unspliced(fin,fout):
+    proteins = pf.Fasta('../reviewedproteome.fasta', key_function=lambda x: x.split('|')[1])
+    df_input = pd.DataFrame.from_csv(fin)
+    if 'cell_line' in df_input.columns:
+        df_input.drop('cell_line', inplace=True, axis=1)
+    df_input.drop_duplicates(inplace=True)
+    output = []
+    for idx, row in df_input.iterrows():
+        if len(row.peptide) != 9:
+            continue
+        try:
+            cleavage1 = proteins[row.protein][max(0, row.start - 3):row.start - 1].seq
+            cleavage4 = proteins[row.protein][row.end:min(row.end + 2, proteins[row.protein].__len__())].seq
+        except:
+            continue
+        output.append([row.peptide, cleavage1,cleavage4])
+    df_output = pd.DataFrame(output,
+                             columns=['peptide', 'cleavage1', 'cleavage4'])
+    df_output[['seq_1', 'seq_2', 'seq_3', 'seq_4', 'seq_5', 'seq_6', 'seq_7', 'seq_8', 'seq_9']] = pd.DataFrame(
+        [list(x) for x in df_output['peptide']])
+    for cleavage in ['cleavage1', 'cleavage4']:
+        df_output[[cleavage + '_1', cleavage + '_2']] = pd.DataFrame([list(x) for x in df_output[cleavage]])
+    df_output.drop('peptide', inplace=True, axis=1)
+    df_output.drop(['cleavage1', 'cleavage4'], inplace=True, axis=1)
+    df_output.to_csv(fout)
+
 if __name__ == "__main__":
-    #create_negative_training_data_with_binding('C0702', 'training_data/test_data_with_cleavage_negative.csv', 'training_data/test_data_negative_binders_C0702.csv')
+    #create_negative_training_data_with_binding('B0702', 'training_data/test_data_with_cleavage_negative.csv', 'training_data/training_data_with_binding_B0702.csv')
+    #create_negative_training_data_with_binding_all('B4002', 'training_data/test_data_with_cleavage_negative.csv', 'training_data/training_data_with_binding_negative_B4002.csv')
     #create_invented_peptides(5000,'all_invented_peptides_2.csv')
-    create_training_data_with_cleavage('all_spliced_peptides_unambiguous_with_cell_lines.csv','training_data/training_data_with_cleavage_positive_fibroblasts.csv','Fibroblasts')
-    #add_ic50('training_data/training_data_with_cleavage_positive.csv','training_data/training_data_with_cleavage_and_ic50_positive.csv')
+    #get_cleavage_unspliced('all_unspliced_peptides_unambiguous_with_cell_lines.csv','all_unspliced_peptides_with_cleavage.csv')
+    #create_training_data_with_cleavage('all_spliced_peptides_unambiguous_with_cell_lines.csv','training_data/training_data_with_cleavage_positive_fibroblasts.csv','Fibroblasts')
+    #add_ic50('training_data/training_data_with_cleavage_positive_C1R.csv',,'training_data/training_data_with_cleavage_and_ic50_positive_C1R.csv')
     #create_allele_specific_training_data('HLA-A*01:01','training_data/training_data_with_cleavage_positive_GRLCL.csv','training_data/training_data_with_cleavage_positive_A0101.csv')
     #create_test_data_with_binding_above_500('training_data/training_data_with_cleavage_positive_GRLCL.csv','training_data/test_data_positive_poor_binders.csv')
     #create_training_data_with_cleavage('all_invented_peptides_2.csv','training_data/test_data_with_cleavage_negative.csv')

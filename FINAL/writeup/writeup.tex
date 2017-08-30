@@ -1,0 +1,552 @@
+\documentclass[10pt,a4paper,twoside,twocolumn]{article}
+%\usepackage[latin1]{inputenc}
+\usepackage[toc,page]{appendix}
+\usepackage{booktabs} % for pandas tables
+\usepackage[many]{tcolorbox}
+\usepackage{subfig}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage[affil-it]{authblk}
+\usepackage[utf8]{inputenc}
+\usepackage{pgfplots}
+\usepackage{tikz}
+\pgfplotsset{every tick label/.append style={font=\tiny,yshift=0.5ex}}
+\bibliographystyle{ieeetr}
+
+\newtcolorbox{mybox}[1]{%
+	tikznode boxed title,
+	enhanced,
+	arc=0mm,
+	interior style={white},
+	attach boxed title to top center= {yshift=-\tcboxedtitleheight/2},
+	fonttitle=\bfseries,
+	colbacktitle=white,coltitle=black,
+	boxed title style={size=normal,colframe=white,boxrule=0pt},
+	title={#1}}
+
+\begin{document}
+
+\author{Michael Ellis\\[0cm]{\small Supervisor: Dr Adrian Shepherd}}
+\affil{Department of Crystallography,\\ Birkbeck, University of London}
+\date{}
+\title{Redefining the boundary between self and non-self: MHC class I splicing and the immunopeptidome}
+
+
+\maketitle
+\newpage
+\onecolumn
+\begin{abstract}
+	Peptide presentation by MHC-I molecules is an essential part of the immune system. Until recently, the presentation of spliced peptides - that is, peptides that have been formed by linking two or more peptide fragment into a new one - was thought to be a rare occurence. A recent paper by Liepe et al. (2016) \cite{Liepe2016}, showed instead that they constitute around one quarter of all antigenic peptides. In this project, I hope to explore the distinctive properties of spliced peptides and build a classifier to predict whether a potential spliced peptide is presented.
+\end{abstract}
+
+\newpage
+\tableofcontents
+\twocolumn
+\addcontentsline{toc}{section}{Introduction}
+\section*{Introduction}
+
+
+\subsection*{Background}
+
+T cells are the police force of the immune system - their role is to identify cells containing bacteria, viruses or mutant proteins and to destroy them. However, since T cells cannot directly interact with the contents of a cell, they require an alternative way of seeing what is inside a cell and detecting abnormalities. The method selected by millions of years of evolution is the presentation of thousands of small protein fragments on the surface of cells. These peptides are derived from proteins broken down in the cytosol of cells. T cells are able to recognize them as "self" - in the case of peptides from normal proteins in cells - or as "non-self" - in the case peptides derived from pathogens or mutated proteins (e.g. cancer) - and act accordingly. 
+
+The steps in this process are well understood in general, though there is still much to discover about many of the specifics. Briefly, proteins are tagged for degredation with ubiquitin and delivered to 20S proteasome. Inside the enclosed cavity of the proteasome there are three types of catalytic site, with two copies of each, which cleave the protein into smaller fragments. The cleavage occurs at particular points in the protein sequence based on the properties of surrounding residues at that point, with each site having preferences for different motifs \cite{Nussbaum1998}. The protein is digested until the fragments are sufficiently small, typically 3-22 residues \cite{Kisselev1999}, and  most of these fragments are subsequently destroyed by cytosolic peptidases \cite{Reits2003}. However, some are transported to the endoplasmic reticulum (ER) by the "transporter associated with antigen processing" (TAP) and awaiting these peptides in the ER are MHC I molecules. Of the peptides that reach the ER, a fraction bind sufficiently strongly to the MHC I molecules - if they are longer than 8-12aa they can be trimmed to fit the MHC I molecule - to be further transported - as a part of peptide-loaded MHC complex - to the surface of the cell where they are presented for recognition by T cells.
+
+So we have three distinct steps in the path from protein to presentation that determine which peptides become antigens:
+\begin{enumerate}
+	\item Cleavage in the 20S proteasome.
+	\item Binding to TAP transporters.
+	\item Binding to MHC I molecules.
+\end{enumerate}
+Each of these adds contraints to the set of peptides that can be presented. 
+
+For a long time, it has been known that there is an optional fourth step in this process that takes place alongside cleavage in the proteasome: cleaved fragments can be joined together to form a new peptide with a sequence that does not occur in the original protein \cite{Hanada2004a}. This peptide splicing was thought to be a rare event and to be unimportant to the general functioning of the immune system. In fact, until recently, only five presented spliced peptides had ever been discovered. 
+
+However, in 2016, Liepe et al. \cite{Liepe2016} used a novel approach to analyse the mass spectrometry (MS) data of peptides eluted from the MHC-I molecules on surface of cells. They discovered thousands of new antigenic spliced peptides - making up around a quarter of the total number of peptides (both spliced and nonspliced) identified by them - showing that these presumed rare objects were in fact a significant part of the immune system and that any understanding of human response to pathogens would be incomplete without an understanding of these new epitopes.
+
+Predicting presented peptides is extremely useful - it can be used to produce peptide vaccines in which only a small fragment of a pathogen is required with obvious benefits over conventional vaccines. For nonspliced peptides there are tools available to predict each of the steps listed above (e.g. NetChop for cleavage \cite{Nielsen2005}, PRED(TAP) for TAP transport \cite{Zhang2006} and NetMHC for MHC binding \cite{Nielsen2016}). The second and third of the three processes above are thought to be the same for both spliced and nonspliced peptides (though not the first, as we shall discuss later) and so the tools for these can be similarly applied to spliced peptides with the caveat that many of these use machine learning algorithms trained on nonspliced peptides and so can perform poorly when applied to spliced peptides \cite{Liepe2016}). By far the biggest barrier to the accurate prediction of antigenic spliced peptides is the lack of knowledge about the splicing process itself. 
+
+The mechanism for splicing is understood to occur via an acyl-enzyme intermediate. At the cleavage site, a nucleophilic attack of the peptide bond occurs, resulting in the formation of the acyl-enzyme intermediate between the peptide on the C-terminal side of the cleavage and the catalytic site. Normally, this intermediate is rapidly hydrolyzed and the fragment released. However, in splicing, the N-terminal of another fragment successfully competes with water and forms a new peptide bond and hence a new peptide \cite{Vigneron2004}. Figure \ref{mechanism} shows this mechanism. An important thing to note is that if this mechanism is correct, we may expect to see inefficient cleavage sites in the protein sequence to be preferred in spliced peptides, because they would allow the N-terminal peptide to remain bound as part of the acyl-enzyme intermediate for longer, giving the C-terminal peptide more time to bind.
+\begin{figure}
+	\centering
+	\includegraphics[width=0.9\linewidth]{images/Selection_036.png}
+	\caption{Figure from Vigneron et al. (2004) \cite{Vigneron2004} - proposed splicing mechanism via an acyl-enzyme intermediate}
+	\label{mechanism}
+\end{figure}
+
+Mishto et al. (2012) \cite{Mishto2012} propose an additional compenent to the above mechanism. They suggest that the C-terminal precursor may sit in a pocket adjacent to the catalytic site prior to splicing, allowing it to more easily out-compete water molecules and also potentially adding more contraints to the peptides that can splice - e.g if the pocket is hydrophobic this will give it a preference for particular types of residue in the C-terminal precursor. This mechanism is shown in figure \ref{pocket}. 
+
+In August 2017, Platteel et al. (2017) \cite{Platteel2017}, proposed a multilevel strategy for identifying spliced epitopes targeted by CD8\textsuperscript{+} T cells during infection. This stategy is fairly simple. Essentially, the idea is to take all possible spliced peptides from a pathogen and simply rank them by their predicted binding affinity to the MHC I molecules within the cell line used. They were able to identify two novel spliced antigens in this way.
+
+\subsection*{Aim}
+
+In this project I use the large dataset of spliced peptides identified by Liepe et al. to examine the properties of spliced peptides relative to nonspliced; to explore and validate proposed splicing rules; and ultimately, to create what is - to my knowledge - the first example of a machine learning classifier for identifying spliced peptides.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.9\linewidth]{images/Selection_029.png}
+	\caption{Figure from Mishto et al. (2012) \cite{Mishto2012}, show their proposed splicing mechanism in which, prior to splicing, the C-terminal precursor sits in a pocket,$ \delta$, near the catalytic site and the N-terminal precursor sits in a pocket, $\gamma$, and is cleaved from the rest of its substrate.}
+	\label{pocket}
+\end{figure}
+	
+
+
+\addcontentsline{toc}{section}{Materials and Methods}
+\section*{Materials and Methods}
+
+
+\addcontentsline{toc}{subsection}{Dataset}
+\subsection*{Data}
+The set of spliced and unspliced peptides  whose properties were investigated and upon which the classifers were trained consists entirely of those peptides identified by Liepe et al. (2016). These peptides were eluted from the HLA-I molecules of three unrelated cell lines - GR lymphoblastoid (GRLCL), CIR lymphoid \cite{Caron2015} and primary human fibroblasts \cite{Bassani-Sternberg2015} - and analysed via liquid chromatography-mass spectrometry (LC-MS/MS). This LC-MS/MS data was then queried against both the Swissprot human proteome database, which does not include spliced peptides, and a second vast database of all possible spliced 9mer-12mer peptides with an intervening sequence of fewer than 20 residues, to generate the sets of identified unspliced and spliced peptides, respectively.
+
+These were extracted from the supplementary materials using a web tool \cite{pdftoxls}. To analyse the residues within the peptide sequences, a python script was written to calculate the frequencies of each residue at each position for all three of the cell lines (Appendix \ref{appendix:programming}).
+
+In order to properly examine the residues involved in the cleavage and splicing of peptides, a Python script was written  to remove any "ambiguous" peptides from the dataset (\ref{appendix:programming}). That is, approximately 10\% of the peptides were identified with multiple possible origins within the proteome, for which it may be the case that only one origin is correct. 
+
+To obtain the residues relevant to proteolytic cleavage that are outside the peptide sequence (e.g for the spliced peptide [DKG][VTFDID], we want the residues either side of [DKG] and [VTFDID]), I downloaded and indexed the human proteome using the python module \textit{pyfaidx} (Appendix \ref{appendix:programming}), and wrote a python script to retrieve the two preceding and succeeding residues corresponding to each peptide fragment (Appendix \ref{appendix:programming}).
+
+NetChop cleavage predictions for the 20S proteasome for the spliced and unspliced peptides were obtained by downloading the NetChop program and running it locally over the complete human proteome \cite{Nielsen2005}. The peptide termini were then matched to the output of this to determine whether the ends of peptide fragments were indeed predicted to be cleavage sites (Appendix \ref{appendix:programming}).
+
+To analyse the properties of residues either side of the splicing sites a python script was written to group the residues by property (hydrophobicity, charge and polarity, and size) (Appendix \ref{appendix:programming}). We obtain some measure of the importance of these properties in splicing, we compare the frequencies of pairs of residues in positions P2-P1, P1-P1', and P1'-P2' to the frequencies of all pairs of residues found between the anchor positions (position 2 and the C-terminal residue) in nonspliced peptides. The residues are grouped by property as in table \ref{residue-properties}.
+
+\begin{table}[]
+	\centering
+	\begin{tabular}{lll}
+		\textbf{Label} & \textbf{Property}       & \textbf{Residues   }           \\ \hline
+		T     & Tiny               & A,G,S                 \\
+		S     & Small              & C,D,N,P,T             \\
+		M     & Medium             & E,H,Q,V               \\
+		L     & Large              & I,K,L,M,R             \\
+		V     & Very Large         & F,W,Y                 \\
+		P     & Polar              & C,Q,N,S,T,Y           \\
+		N     & Non-polar          & A,F,G,I,L,M,P,\\
+		&&V,W     \\
+		-     & Negatively Charged & D,E                   \\
+		+     & Positively Charged & H,R,K                 \\
+		O     & Hydrophobic        & A,C,F,G,I,L,M, \\
+		&&P,W,Y,V\\
+		I     & Hydrophilic        & D,E,H,K,N,Q,R, \\
+		&& S,T,   
+	\end{tabular}
+	\caption{Residues grouped by size, charge and hydrophobicity.}
+	\label{residue-properties}
+\end{table}
+
+The ic50 binding values predicted by the SMM method \cite{Peters2005} were obtained via the software available from the IEDB. The NetMHC predictions were obtained from the CBS prediction server \cite{Andreatta2016}.
+
+\addcontentsline{toc}{subsection}{Classifer Architecture}
+\subsection*{Classifiers}
+
+The negative data for the classifiers, i.e. potential spliced peptides not presented on the surface of cells by HLA-I molecules, were randomly generated from the indexed proteome (Appendix \ref{appendix:programming}). It is possible that a proportion of this set are in fact real spliced peptides not yet identified but, given the vast number of potential 9-12mer spliced peptides ($1.6\times10^{10}$) relative to the much smaller number of HLA-I-presented spliced peptides, this proportion is almost cetrainly small enough that a classifier can still be adequately trained on the data.
+
+Prior to all training and testing of any classifiers, relevant features were created for the spliced and invented datasets and these were transformed to a form useable by classifier (Appendix \ref{appendix:programming}). The features included in all my classifiers were: the amino acid at each position; the two amino acids either side of the splicing site; the length of the first peptide fragment; whether the fragments were reversed relative to the order they appear in their original protein; the distance between fragments; and the two residues preceding the N-terminus or succeeding the C-terminus of a peptide fragment (from this point refered to as \textit{cleavage residues} for brevity). An additional feature included in some cases was the ic50 binding value predicted by the stablised matrix method (SMM) \cite{Peters2005}. For each feature respresented by a letter for an amino acids, the letter was encoded into a binary vector of length 21, with each position in the vector representing one of the 20 amino acids and an additional position for NA (conventional sparse encoding \cite{Qian1988}). In order to limit the number of features, I restricted my attention to 9mer peptides - the most frequent length - for all of the classification.
+
+In all cases of training and testing the classifiers, the data was split into two sets: a training set, for fitting the classifiers and tuning the hyperparameters; and a test set, for evaluating the final model. In each case the train/test split was 80/20.
+
+The spliced peptide data was separated by which cell line they originated from. The GRLCL cell line data was further split into groups based on the MHC allele that each peptide was likely to have been bound too. This was determined by using the SMM method to predict binding and assigning a peptide to an allele if it was predicted to bind (ic50<500nM) and if that allele was the best scoring for that particular peptide. Only 5 of the 6 alleles present in the GRLCL cell lines were capable of being predicted by the IEDB SMM method, so there are no predicted binders for HLA-C*02:02.
+
+The classifiers were trained and tested on the data in four different ways:
+\begin{itemize}
+	\item Using data from cell lines with multiple alleles (i.e. GRLCL and fibroblasts) to train and test a classifier for each cell line.
+	\item Training a classifier on the combined data from GRLCL and fibroblast cell lines and testing on the C1R cell line.
+	\item Training and testing on the C1R cell line, which only contains the HLA-B*40:02 allele, including binding predictions as an additional feature.
+	\item Training and testing on each of the GRLCL allele-specific subsets (HLA-A*01:01, \mbox{-A*03:01}, -B*07:02, -B*27:05, and -C*07:02)
+\end{itemize}
+
+In each case, three different types of classifier were used - random forest, neural network, and support vector machine. For each classifier, their hyperparameters were tuned on the training set using 3-fold cross-validation and the best performing model was then applied to the relevant test set. The optimum number of features was also calculated during this process but in each case it was found to be optimal to use all available features (Figure \ref{feature-selection}). The results of the hyperparameter tuning are found in appendix \ref{appendix:tables}. 
+
+
+\begin{figure}
+			\newlength\figureheight
+			\newlength\figurewidth
+	\setlength\figureheight{6cm}
+	\setlength\figurewidth{0.9\linewidth}
+	\input{images/feature_selection.tex}
+	\caption{Feature selection for a random forest classifier on the GRLCL cell line. Performance improves as more features are added.}
+	\label{feature-selection}
+\end{figure}
+
+
+\addcontentsline{toc}{section}{Results}
+
+\section*{Results}
+\addcontentsline{toc}{subsection}{Properties of Spliced Peptides}
+\subsection*{Properties of Spliced Peptides}
+
+Examining the relative frequencies of residues between spliced and nonspliced peptides at different positions in the peptide we can immediately see that these two classes of peptide are very different from one another (see appendix \ref{appendix:graphs}).
+
+Proline in position 1 in the GRLCL cell line stands out in particular, it is present in 25\% of the spliced peptides, compared to only 0.7\% of nonspliced peptides (figure \ref{GRLCL-1}). We don't see this replicated to quite the same extent in the C1R and fibroblast cell lines though we do still find that proline is over represented by a factor of 10 in each compared with the factor of 40 in GRLCL.
+
+Beyond this, there is no clear, discernable pattern in the preferences of spliced peptides for particular amino acids. We can perhaps note that spliced peptides appear be less selective to some degree. For example, in position 2 for the GRLCL cell line D, E, F, N and G very rarely occur within unspliced peptides but they are all reasonably common in spliced peptides (figure \ref{GRLCL-2}).
+
+One further interesting result we find from looking at residue frequencies at any point in the peptides is that, remarkably, while only 0.5\% of unspliced peptides contain a cysteine residue, for spliced peptides this figure is 10\%.
+
+	\begin{figure}
+		\setlength\figureheight{4cm}
+		\setlength\figurewidth{0.9\linewidth}
+		\input{images/positions/9mers_GRLCL_1.tex}
+		\caption{Comparison of frequencies of amino acids at position 1 in spliced and nonspliced peptides from the GRLCL cell line}
+		\label{GRLCL-1}
+	\end{figure}
+	\begin{figure}
+		\setlength\figureheight{4cm}
+		\setlength\figurewidth{0.9\linewidth}
+		\input{images/positions/9mers_GRLCL_2.tex}
+		\caption{Comparison of frequencies of amino acids at position 2 in spliced and nonspliced peptides from the GRLCL cell line}
+		\label{GRLCL-2}
+	\end{figure}
+	\begin{figure}
+		\setlength\figureheight{4cm}
+		\setlength\figurewidth{0.9\linewidth}
+		\input{images/positions/9mers_GRLCL_9.tex}
+		\caption{Comparison of frequencies of amino acids at position 9 in spliced and nonspliced peptides from the GRLCL cell line}
+		\label{GRLCL-9}
+	\end{figure}
+
+\addcontentsline{toc}{subsection}{Cleavage Sites}
+\subsection*{Cleavage Sites}
+\addcontentsline{toc}{subsubsection}{Residue Frequencies}
+\subsubsection*{Residue Frequencies}
+
+By simply looking at the frequencies of different residues at cleavage site (figures \ref{cleavage1} and \ref{cleavage2}) we notice some striking features. Most notably, proline - known to inhibit cleavage in positions P1 and P1' \cite{Kesmir2002}- is found more commonly than in the proteome at both P1' for the second cleavage site and P1 for the third cleavage site, while for nonspliced peptides it occurs much less often - as we would expect from a cleavage inhibitor.
+
+We find a few other similar curious results. At position P1', serine is seem to encourage cleavage in nonspliced peptides while being less common for spliced peptides than in the proteome. Conversely, leucine at position P1 discourages splicing in nonspliced peptides while being common in spliced peptides.
+
+Most significantly, taking a complete view these results we can conclude that the rules that govern cleavage for nonspliced peptides don't appear to apply to spliced peptides and are sometimes completely wrong. This has implications for the tools used to predict cleavage sites, which may be ineffective for spliced peptides.
+
+
+
+	\begin{figure}
+		\setlength\figureheight{4cm}
+		\setlength\figurewidth{0.9\linewidth}
+		\input{images/right_cleavages.tex}
+		\caption{Frequencies of selected residues in the P1' position of C-terminal cleavage sites compared to the proteome. The frequencies for the N-terminal (blue) and C-terminal (orange) splice reactants have distinct distributions compared to unspliced peptides (green) and the proteome (red) }
+		\label{cleavage1}
+	\end{figure}
+		\begin{figure}
+			\setlength\figureheight{4cm}
+			\setlength\figurewidth{0.9\linewidth}
+			\input{images/left_cleavages.tex}
+			\caption{Frequencies of selected residues in the P1 position of N-terminal cleavage sites compared to the proteome. As with the C-terminal cleavage sites, the frequencies for the N-terminal (blue) and C-terminal (orange) splice reactants have distinct distributions compared to unspliced peptides (green) and the proteome (red)}
+			\label{cleavage2}
+		\end{figure}
+\addcontentsline{toc}{subsection}{NetChop Evaluation}
+\subsubsection*{NetChop Evaluation}
+The tool NetChop20S 3.0 can be used to predict cleavage sites within proteins digested by the human proteasome. It has been trained on in vitro degradation data, in contrast to other tools trained on the C-terminal cleavage sites of MHC ligands. By comparing the proportions of positive predictions made by this tool on the N- and C-terminal sites of spliced and unspliced peptides we can obtain a measure of how "cleavage-like" these sites are (Figure \ref{netchop-cleavage}). 
+
+We find that the ends of spliced peptide precursors are predicted to be cleavage sites at a lower rate than the ends of nonspliced peptides, and hence are less likely to be typical cleavage sites. This agrees with the idea proposed by Mishto et al. (2012) that spliced peptides use uncommon cleavage sites \cite{Mishto2012a}. However, this difference may also be due to incorrect labelling of the original location of the peptide precursors within the proteome - only fragments less that 20 amino acids apart were considered and this may be too restrictive to find the true locations and hence the true cleavage sites. 
+
+One thing to note in nonspliced peptides is that 70.6\% of them are predicted to have a cleavage after their C-terminal residue compared with only 57.0\% before their N-terminal residue. This type of difference can be explained by the existence of N-terminal peptide trimming in the endoplasmic reticulum (ER). Where peptides are too long to bind to MHC-I molecules, they are often reduced in size through the removal of N-terminal residues by ER aminopeptidases, hence abolishing the conjunction of N-terminus and cleavage site. This relationship is repeated in the spliced peptides as we would expect.
+
+Most interestingly, of the C-terminal sites of the N-terminal precursor peptides (i.e. that right ends of the first peptide), only 42.2\% are predicted to be cleavage sites. Given that, of all possible sites in the whole proteome, NetChop20 3.0 predicts 46.7\% to be cleavage sites, 42.2\% is significantly worse (p<0.0001, using a binomial test) than random and suggests that these sites may be particularly atypical cleavage sites. This supports the idea proposed by Mishto et al. (2012) \cite{mishto2012} (shown in figure \ref{splice-mechanism}) that a slowly hydrolyzing N-terminal precursor peptide can increase the efficacy of splicing and, thus, the same thing that makes a site a poor cleavage site under normal conditions can make it a good site for the forming of spliced peptides.
+
+	\begin{figure}
+		\setlength\figureheight{6cm}
+		\setlength\figurewidth{0.9\linewidth}
+		\input{images/cleavages.tex}
+		\caption{The proportion of positive cleavage predictions for the N- and C-terminals of peptides - 1 and 4, respectively - and for the N- a C-terminals of the splicing site within spliced peptides - 3 and 2, respectively. (For spliced peptides as they are normally represented, sites 1 to 4 are in order from left to right)}
+		\label{netchop-cleavage}
+	\end{figure}
+\addcontentsline{toc}{subsection}{Validation of Proposed Splicing Rules}
+\subsection*{Validation of Proposed Splicing Rules}
+Berkers et al. (2016)\cite{Berkers2015} propose rough rules that govern peptide splicing derived experimentally in vitro. They propose that it is the N-terminal ligation precursor that primarily determines the ligation efficiency and that it is most efficient when there is a negatively charged or polar residue at P1 combined with a small or polar residue at P2, but also that it can participate in ligation if a hydrophobic residue at P1 is combined with a basic, small, or—to a lesser extent—polar or negatively charged residue at P2. (Also that it is most efficient when slowly hydrolyzed by the proteasome and therefore possesses a longer half-life but we cannot test this with the data we have). Utilising our much larger dataset we attempt to validate these rules.
+
+In the GRLCL cell line, we find evidence that tiny and hydrophobic residues are preferred in the P2 and P1 positions of the splicing site (Figure \ref{GRLCL-left}). However, we find the same pattern for the P1 and P1' positions and also for the P1' and P2' positions (Appendix \ref{appendix:graphs}). This suggests that the differences we are observing in residue frequencies is due to general differences between the properties of spliced and unspliced peptides in this cell line rather than being specific to the positions relative to the splicing site. The GRLCL cell line has six different types of MHC-I molecules, if spliced and nonspliced peptides differ in their binding preferences  - perhaps due to their anchor residues - we might expect different properties to be observed in the non-anchor residues (e.g some MHC molecules have an affinity for hydrophobic residues in these positions).
+
+	\begin{figure}
+		\includegraphics[width=\linewidth]{images/binding_pairs_left_GRLCL_None.pdf}
+		\caption{Relative frequencies in the GRLCL cell line of pairs of residues on the N-terminal peptide side of the splicing site compared to pairs of non-anchor in nonspliced peptides}
+		
+	\end{figure}
+
+
+In order to eliminate the effect of MHC alleles preferences among the peptides, we turn our attention to the C1R cell line. Our data from C1R contains fewer spliced and nonspliced than our data from GRLCL and so any statistical tests we carry out will have less power, but it also has the great benefit that the peptides within it have been eluted entirely from one allele, HLA-B*40:02.
+
+In agreement with Berkers et al., using a chi-squared test we find that a tiny residue at P2 combined with a polar or negatively charged residue at P1 does indeed increase the efficacy of splicing (p<0.001). However, we are unable to find a similar effect for a polar residue at P1 combined with a polar or negatively charged residue at P2. The most overrepresented pair of residues is a tiny residue followed by a tiny residue (Bonferroni-adjusted p<0.0001). Considering each amino acid separately - rather than grouping them - and applying a Bonferroni correction, we find three pairs are, significantly overrepresented in the P2 and P1 positions (p<0.05): GS, DA and SV.
+
+For the P1 and P1' pairs, we observe a preference for tiny residues at P1 conbined with hydrophobic, small or non-charged residues at P1'. We find three pairs of residues are overreprepresented (adjusted p<0.05): LL, SL and GL. 
+
+For the pairs P1' and P2', it is clear from comparing figure \ref{C1R-right} to figures \ref{C1R-centre} and \ref{C1R-left} that the C-terminal precursor has less stringent requirement on the types of residues it can contain. This is in agreement with Berkers et al. (2016), that the N-terminal precursor primarily determines splicing efficiency.
+
+	\begin{figure}
+		\includegraphics[width=0.9\linewidth]{images/binding_pairs_left_C1R_None.pdf}
+		\caption{Relative frequencies in the C1R cell line of pairs of residues on the N-terminal peptide side of the splicing site compared to pairs of non-anchor in nonspliced peptides}
+		\label{C1R-left}
+		
+	\end{figure}
+		\begin{figure}
+			\includegraphics[width=0.9\linewidth]{images/binding_pairs_centre_C1R_None.pdf}
+			\caption{Relative frequencies in the C1R cell line of pairs of residues either side of the splicing site compared to pairs of non-anchor in nonspliced peptides}
+			\label{C1R-centre}
+			
+		\end{figure}
+		\begin{figure}
+			\includegraphics[width=0.9\linewidth]{images/binding_pairs_right_C1R_None.pdf}
+			\caption{Relative frequencies in the C1R cell line of pairs of residues on the C-terminal peptide side of the splicing site compared to pairs of non-anchor in nonspliced peptides}
+			\label{C1R-right}
+			
+		\end{figure}
+ 
+
+\addcontentsline{toc}{subsection}{Predicting Spliced Peptides}
+\subsection*{Predicting Spliced Peptides}
+
+Table \ref{MCC-all} shows the Matthews correlation coefficient (MCC) for the performance of each classifier type on the test sets. We see a remarkable consistency in the relative performance of the classifier types. The random forest approach produces the best result for all eight of the test sets, with the neural network classifier performing notably worse than both SVMs and random forests in all cases. The gap in performance between the neural network and the other approaches diminishes as the size of the datasets increase, suggesting that with a sufficiently large dataset it might be a good choice of classifier. From this point on, if the type of classifier is not mentioned, it can be assumed to be a random forest, as this was the method used for any additional tests not included in table \ref{MCC-all}.
+
+
+\begin{mybox}{Summary of Statistical Measures}
+	\small 
+Sensitivity, specificity and Matthews correlation coefficent are used repeatedly in this project to evaluate classifier performance. Below are their definitions in terms of true positives (TP), false positives (FP), true negatives (TN) and false negatives (FN).
+	\tiny
+	\begin{equation*}
+	\begin{gathered}
+	\textbf{Sensitivity} =  \dfrac{TP}{TP+FN} \\\\
+	 \textbf{Specificity}= \dfrac{TN}{TN+FP} \\\\
+	 \textbf{MCC} = \frac{(TP\times TN) - (FP\times FN)}{\sqrt{(TP+FP)(TP+FN)(TN+FP)(TN+FN)}}
+	\end{gathered}
+	\end{equation*}
+\end{mybox}
+\normalsize
+
+
+\begin{table}
+	\centering
+	\input{tables/test_MCC.tex}
+	\caption{Matthews correlation coefficients for the best performing classifiers of each type - random forest, RF, neural network, NN, and support vector machine, SVM - evaluated on the test sets}
+	\label{MCC-all}
+\end{table}
+
+\addcontentsline{toc}{subsubsection}{Predicting Spliced Peptides}
+\subsubsection*{Predicting Spliced Peptides in Cell Lines with Multiple HLA Alleles}
+
+Ideally, we ultimately want to be able to predict spliced peptides for any cell line with any HLA alleles. In training and testing a classifier on the spliced peptides from the GRLCL and fibroblast cell lines we hoped to show that it is indeed possible to predict spliced peptides.
+
+We find the classifiers perform reasonably well and, in both cases, the level of performance is similar with a Matthews correlation coefficient just below 0.6.
+
+\begin{table}
+	\centering
+	\begin{tabular}{lcccc}
+		\toprule
+		Dataset & N & Sens. & Spec. & MCC \\ 
+		\midrule
+		GRLCL & 728 & 0.801 & 0.783 & 0.582 \\
+		Fibroblasts & 166 & 0.753 & 0.820 & 0.575 \\
+		\bottomrule
+	\end{tabular}
+	\caption{Performance of the random forest classifier on GRLCL and fibroblast cell lines measure by sensitivity, specificity and Matthews correlation coefficient}
+	\label{GRLCL-fibroblast-predictions}
+\end{table}
+
+\addcontentsline{toc}{subsubsection}{Predicting Spliced Peptides}
+\subsubsection*{Predicting Spliced Peptides in an Unrelated Cell Line}
+
+After determing that spliced peptides within a particular cell line can indeed be predicted with a reasonable degree of accuracy, I investigated whether a classifier trained on one cell line can be used to classify peptides in an unrelated cell line with distinct HLA alleles. After training and testing (figure \ref{non-C1R}) the classifier on the spliced peptides from the GRLCL and fibroblast cell lines, we used the set of spliced peptides from the C1R cell line as the test set from an unrelated cell line. The classifier was only able to achieve 41.7\% accuracy on the C1R peptides, which - while greater than the false negative rate of 19.8\% (i.e. the proportion of positive predictions we would expect on a random sample of non-presented peptides) - is much worse the performance of a classifier trained and tested on the same cell line. 
+
+\addcontentsline{toc}{subsubsection}{Predicting Spliced Peptides}
+\subsubsection*{Predicting Spliced Peptides in a Cell Line with a Single HLA Allele}
+
+The C1R cell line has only one type of MHC-I molecule, HLA-B*40:02, for peptides to bind to. This makes it a natural choice for building a classifier to identify peptides for a particular MHC I molecule. I incorporated SMM binding predictions for B*40:02 as a feature in the classifier, a comparison of the results of these two methods can be seen in table \ref{C1R-predictions}.
+
+Perhaps surprisingly, neither approach works especially well with them both scoring similarly to classifiers trained on the GRLCL and fibroblast cell lines. 
+
+More surprisingly, including the IC50 binding predictions made the classifier less effective. This may be due to the IC50 score capturing a lot of the information that the classifier would otherwise have to learn from patterns of residues in particular positions, leading to the classifier to overfit when trained on the same number of examples. It could also be simply due to the SMM method performing poorly for this particular allele. Figure \ref{C1R-binding-predictions} shows the distribution of binding predictions - we see that less than 20\% of these spliced peptides are predicted to bind. This perhaps makes the most sense as an explanation for the poor result - incorporating an additional feature with little predictive value will inevitable lead to a worse result.
+
+\begin{table}
+	\centering
+	\begin{tabular}{lcccc}
+		\toprule
+		IC50 & N & Sensitivity & Specifiticity & MCC \\ 
+		\midrule
+		Yes & 150 & 0.792 & 0.769 & 0.560 \\
+		No & 150 & 0.809 & 0.829 & 0.637 \\
+		\bottomrule
+	\end{tabular}
+	\caption{Comparison of C1R random forest classifier performance with and without the SMM IC50 binding predictions for HLA-B*40:02}
+	\label{C1R-predictions}
+\end{table}
+
+\begin{figure}
+	\setlength\figureheight{4cm}
+	\setlength\figurewidth{0.9\linewidth}
+	\input{images/C1R_binding_predictions.tex}
+	\caption{SMM binding predictions for spliced peptides in the C1R cell line}
+	\label{C1R-binding-predictions}
+\end{figure}
+
+
+\addcontentsline{toc}{subsubsection}{Predicting Spliced Peptides}
+\subsubsection*{Predicting Spliced Peptides for Specific HLA Alleles from Cell Lines with Multiple Alleles}
+
+More useful, perhaps, for immunotherapeutical and future research purposes is a tool that can predict spliced peptides for a particular allele as NetMHCpan does for nonspliced peptides. Table \ref{allele-results} shows the performance of the three types of classifier on the test sets for each of the five alleles from the GRLCL cell line.
+\begin{table}
+	\centering
+\begin{tabular}{lcccc}
+	\toprule
+	Dataset &    N &     RF &     NN &    SVM \\
+	\midrule
+	A0101 &   14 &  1.000 &  0.577 &  1.000 \\
+	A0301 &   48 &  0.959 &  0.746 &  0.959 \\
+	B0702 &   77 &  0.873 &  0.769 &  0.845 \\
+	B2705 &   30 &  0.935 &  0.607 &  0.935 \\
+	C0702 &  276 &  0.725 &  0.667 &  0.718 \\
+	\bottomrule
+\end{tabular}
+\caption{text}
+\label{allele-results}
+\end{table}
+
+We find good peformance for all five of the alleles, especially with a random forest or SVM approach, with a Matthews correlation coefficient of greater than 0.7 for all of them. Seemingly paradoxically, we find a strong relationship between the size of the test set and the performance of the classifier (figure \ref{scatter}). However, this can probably be explained by biases in the SMM algorithm ; if the algorithm is more selective about assigning low IC50 scores (lower is better) for a particular allele, it will result in a smaller set of predicted binders and the ones it assign will be more certain and probably have greater similarity to each other.
+
+\begin{figure}
+	\setlength\figureheight{4cm}
+	\setlength\figurewidth{0.9\linewidth}
+	\input{images/scatter.tex}
+	\caption{Relationship between size of test set and performance of classifier for the GRLCL alleles}
+	\label{scatter}
+\end{figure}
+
+
+\begin{table}
+	\centering
+	\begin{tabular}{lcc}
+		\toprule
+		Classifier & Sensitivity & FPR \\ 
+		\midrule
+		C0702 & 0.862 & 0.267 \\
+		B0702 & 0.972 & 0.896 \\
+		\bottomrule
+	\end{tabular}
+	\caption{Comparison of the sensitivity (true positive rate) of the HLA-C*07:02 and -B*07:02 classifiers on the normal test set to the false positive rate (FPR) when tested on a set of invented spliced peptides that were predicted to bind to these alleles}
+	\label{invented-binders}
+\end{table}
+
+For both of the HLA-C*07:02 and -B*07:02 alleles (chosen because they had the largest training sets), I tested their best performing classifier on a set of randomly generated spliced peptides predicted to bind to them (IC50 < 500nM) by the SMM method. This was done to test the extent to which the classifiers were acting as simply binding prediction tools (recall that the original training sets for these classifiers had also been chosen by selecting spliced peptides with a binding strength of less than 500nM, making this a good test). 
+
+The relevant comparison in this test is between the sensitivity of the classifier on the original test set - i.e. the proportion of positives correctly predicted as such - and the false positive rate  - i.e. the proportion of negatives incorrectly predicted as positives - in this new test set. If the classifiers are entirely predicting binding rather than anything else, we would expect these two values to be the same, as both sets consist of binding peptides according to the SMM method.
+
+We find (table \ref{invented-binders}) excellent results for the C*07:02 classifier, just over a quarter of "invented" binding peptides are wrongly identified as spliced peptides compared with 86\% of spliced peptides being accurately labelled. This strongly suggests that this classifier is doing more than just predicting binding strength.
+
+For the B*07:02 classifier, the results are less good with a FPR of nearly 90\% compared with a sensitivity of 97.2\%. The test set for this allele is much smaller than for C*07:02, with only a quarter of the number of positive training examples; it may be the case that this test set is too small to effectively identify features that are typical of spliced peptides but large enough to identify the more easily distinguisable features relevant MHC-I binding (such as the residues in the anchor positions).
+
+\begin{table}
+	\centering
+\begin{tabular}{lr}
+	\toprule
+	Feature &         Score \\
+		\midrule
+	Position 9       &  0.114475 \\
+	Position 1       &  0.086463 \\
+	Position 2       &  0.072443 \\
+	Splicing P2  &  0.052405 \\
+	Position 4       &  0.041146 \\
+	Position 6       &  0.041056 \\
+	Splicing P2'  &  0.039159 \\
+	Position 7       &  0.037934 \\
+	Position 3       &  0.037084 \\
+	Splicing P1  &  0.036972 \\
+	Position 5       &  0.036284 \\
+	Position 8       &  0.036176 \\
+	Splicing P1'  &  0.035927 \\
+	Cleavage 3 P2 &  0.034957 \\
+	Cleavage 3 P1 &  0.033822 \\
+	Length1     &  0.033082 \\
+	Cleavage 2 P2' &  0.032666 \\
+	Cleavage 4 P2' &  0.032569 \\
+	Distance    &  0.032384 \\
+	Cleavage 2 P1' &  0.032302 \\
+	Cleavage 1 P1 &  0.032186 \\
+	Cleavage 1 P2 &  0.031970 \\
+	Cleavage 4 P1' &  0.031562 \\
+	Reversed    &  0.004975 \\
+	\bottomrule
+\end{tabular}
+\caption{Relative feature importance for each feature included in the C*07:02 random forest classifier}
+\label{feature-importance}
+\end{table}
+
+In table \ref{feature-importance}, we can see the relative importance of features for the C*07:02 classifier. Unsurprisingly we find the anchor positions 1,2 and 9 are the most important features as these primarily determine the strength of binding to MHC-I molecules. We find that the residues either side of the splicing site are also important - accounting for 17\% of the feature weights. In addition, we see that whether the splicing is reversed or not (i.e.  whether the C-terminal peptide precursor occurs before the N-terminal precursor in the original protein sequence) is by far the least important of the features included.
+
+These results validate our findings above, that the classifier predictions are not just proxies for binding predictions, though binding will inevitably a large component of them.
+
+\begin{table}
+	\centering
+	\input{tables/sensitivity_specificity.tex}
+	\caption{Sensitivity, specificity and Matthews correlation coefficient for the best performing random forest classifier for each dataset.}
+	\label{sensitivity-specificity}
+\end{table}
+
+
+\addcontentsline{toc}{section}{Discussion}
+\section*{Discussion}
+
+In this project, it has been shown that spliced peptides do indeed posess many unusual qualities compared to nonspliced peptides - some of which have been explored or validated here - and, as such, current tools are insufficient to predict them. In addition, there is an absense of large amounds of data on the splicing process itself. Given these contraints at the present time, I feel the use of a classifier to identify spliced peptides is completely justified and to my knowledge, this is the first time one has been built.
+
+This project was inevitably going to be contrained by the data available. As has been done for nonspliced peptides in the past, it would be incredibly useful to have mass spectographic data from cell lines containing only a single type of MHC I molecules. This would allow a classifier to be trained without having to attempt to filter the results by predicted binding to an allele.
+
+There is a lot of scope in this area for future work. A natural extension of the work in this project is - similarly to Platteel et al. (2017)  - to test the classifiers created here on potential spliced antigens from pathogens. Helpfully, the classifiers are able to output probabilistic predictions, which, if you set a threshold, say the 99th percentile of predictions, would narrow down the range of spliced peptides needed to be tested. It would be interesting to compare the two approached to see which is the most effective - though of course it would be restricted to the five alleles that classifiers were built for.
+
+One of the most useful and interesting things someone could do is to carry out - following the method of Liepe et al. (2016) -  a large scale mass spectrometry analysis of spliced peptides produced by the proteasome prior to TAP transport. This would allow for a much deeper and clearer analysis of the properties that determine splicing and give a much greater understranding of the underlying mechanism. From this point it would be relatiely straight forward to build a tool to predict splicing in the proteasome which could then be combined with current tools (i.e. PRED(TAP) and SMM binding predictors) to produce much better results for predicting spliced peptides and for a wider range of alleles than the classifiers in this project.
+
+Ultimately, the immune systems remains full of mysteries, it will be fascinating to see what new approaches in peptide vaccines and in immunotherapy come from discoveries pertaining to spliced peptides over the next few years.
+
+\bibliography{/home/michael/Documents/bibtex/MScProject.bib}
+
+\begin{appendices}
+\section{Programming Appendix}
+\label{appendix:programming}
+\url{www.github.com/michaelandrewellis/MScProject}
+\section{Table Appendix}
+\label{appendix:tables}
+\foreach \y in {A0101,A0301,B0702,B2705,C0702,GRLCL,C1R,fibroblasts}{\foreach \x/\xname in {rf/random forest,svm/SVM,nn/neural network}
+{
+\begin{table*}
+	\centering
+	\input{tables/CV_table_\y_\x.tex}
+	\caption{Hyper-parameter tuning of \xname\ classifier on the \y\ dataset}
+\end{table*}}}
+\section{Graph Appendix}
+\label{appendix:graphs}
+	\begin{figure}
+		\includegraphics[width=\linewidth]{images/binding_pairs_left_C1R.pdf}
+		\caption{Binding paris left of the splice site for C1R}
+		
+	\end{figure}
+	\begin{figure}
+		\includegraphics[width=\linewidth]{images/binding_pairs_right_C1R.pdf}
+		\caption{Binding paris right of the splice site for C1R}
+		
+			\end{figure}
+			\begin{figure}
+				\includegraphics[width=\linewidth]{images/binding_pairs_centre_fibroblasts.pdf}
+				\caption{Relative frequency of binding pairs either side of the splicing site for the fibroblast cell line compared to non-anchor residues in nonspliced peptides}
+	\end{figure}
+	\begin{figure}
+		\includegraphics[width=\linewidth]{images/binding_pairs_left_fibroblasts.pdf}
+		\caption{Relative frequency of N-terminal binding pairs for the fibroblast cell line compared to non-anchor residues in nonspliced peptides}
+		
+	\end{figure}
+	\begin{figure}
+		\includegraphics[width=\linewidth]{images/binding_pairs_right_fibroblasts.pdf}
+		\caption{Relative frequency of C-terminal binding pairs for the fibroblast cell line compared to non-anchor residues in nonspliced peptides}
+	\end{figure}
+		
+
+
+\foreach \y in {GRLCL,C1R,Fibroblasts}{\begin{figure*}
+\foreach \x in {1,2,3,4,5,6,7,8,9}{
+\begin{subfig}
+	\newlength\figureheight
+	\newlength\figurewidth
+	\setlength\figureheight{4cm}
+	\setlength\figurewidth{0.3\linewidth}	\input{images/positions/9mers_\y_\x.tex}
+	\subcaption{}
+\end{subfig}~
+}\end{figure*}}
+
+
+\end{appendices}
+
+\end{document}

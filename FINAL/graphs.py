@@ -4,9 +4,10 @@ import pandas as pd
 import numpy as np
 import pyfaidx as pf
 import itertools
+from scipy.stats import fisher_exact
 
 
-splice_colors = ['y','b']
+splice_colors = ['orange','b']
 aa_cats = {'S': 'N', 'V': 'H', 'A': 'H', 'C': 'H', 'Q': 'N', 'P': 'P', 'N': 'N', 'T': 'N', 'G': 'H', 'M': 'H', 'L': 'H', 'W': 'W', 'E': 'E', 'F': 'W', 'Y': 'W', 'H': 'K', 'I': 'H', 'K': 'K', 'D':'E', 'R': 'K'}
 aa_dict = {'S': 0.083207136799280254, 'V': 0.05969329362753354, 'A': 0.070178284858173401, 'C': 0.022970256771492441, 'Q': 0.047658794128419044, 'P': 0.063103624877869691, 'N': 0.035881471493242882, 'T': 0.053571477460770595, 'G': 0.065702594916323465, 'M': 0.021322187589502981, 'L': 0.099593771833428171, 'W': 0.012186050151078161, 'E': 0.071012696606281039, 'F': 0.03651443391901419, 'Y': 0.026648097884764452, 'H': 0.026268603041240058, 'I': 0.043406014352977189, 'K': 0.057270072888268402, 'D': 0.047394198701097866, 'R': 0.056413582082473761}
 aa_dict_bind1 = {'G':0.1048723897911833,'L':0.10409899458623356,'A':0.10177880897138437,'S':0.08553750966744006,'P':0.08043310131477185,'R':0.07037896365042537,'V':0.06867749419953596,'K':0.05645784996133024,'T':0.048414539829853054,'I':0.04501160092807425,'E':0.04501160092807425,'Q':0.032946635730858466,'D':0.031245166279969063,'F':0.027532869296210363,'N':0.026295436968290797,'H':0.018716163959783448,'Y':0.017633410672853827,'M':0.01577726218097448,'C':0.014849187935034803,'W':0.004331013147718484}
@@ -62,7 +63,7 @@ def plot_9mer_sequence2(cell_line=None,position=1):
     plt.ylabel('Frequency')
     plt.yticks(np.arange(0,0.41,0.1))
     plt.xticks(rotation='horizontal')
-    plt.title('Position 1')
+    plt.title('Position '+str(position) + ' - ' + cell_line)
     tikz_save('writeup/images/positions/9mers_'+str(cell_line)+'_'+str(position)+'.tex',
               figureheight = '\\figureheight',
               figurewidth = '\\figurewidth')
@@ -71,7 +72,7 @@ def plot_all_9mers(cell_line=None):
     for i in range(1,10):
         plot_9mer_sequence2(cell_line=cell_line,position=i)
     
-def generate_binding_pairs(pair_type='centre',cell_line=None):
+def generate_binding_pairs(pair_type='centre',cell_line=None,length=None):
     # Compare binding pairs to expected pairs from unspliced peptides excluding anchor residues
     df_spliced = pd.DataFrame.from_csv('all_spliced_peptides_unambiguous_with_cell_lines.csv')
     if cell_line is not None:
@@ -85,28 +86,32 @@ def generate_binding_pairs(pair_type='centre',cell_line=None):
         df_unspliced = df_unspliced[df_unspliced['cell_line']==cell_line]
     df_unspliced.drop('cell_line',inplace=True,axis=1)
     df_unspliced.drop_duplicates(subset=['peptide'],inplace=True)
+    if length is not None:
+        df_unspliced = df_unspliced[df_unspliced.peptide.str.len()==int(length)]
+        df_spliced  = df_spliced[df_spliced.peptide.str.len() == int(length)]
     pairs = []
     for peptide in df_unspliced.peptide:
-        non_anchor = peptide[3:-1]
-        pairs.extend([non_anchor[i:i+2] for i in range(0,4)]) #len(non_anchor)-2
+        non_anchor = peptide[2:-1]
+        pairs.extend([non_anchor[i:i+2] for i in range(0,len(non_anchor)-1)]) #len(non_anchor)-2
         df_pairs_prob = pd.Series(pairs).value_counts()
+    print(df_spliced)
     if pair_type == 'centre':
-        df_spliced = df_spliced[(df_spliced.length1>3)&(df_spliced.length2>1)]
+        df_spliced = df_spliced[(df_spliced.length1>2)&(df_spliced.length2>1)]
         df_binding_pairs = df_spliced.apply(lambda x: x[0][x[6]-1:x[6]+1],axis=1).value_counts()
     if pair_type == 'right':
-        df_spliced = df_spliced[(df_spliced.length1>2)&(df_spliced.length2>2)]
+        df_spliced = df_spliced[(df_spliced.length1>1)&(df_spliced.length2>2)]
         df_binding_pairs = df_spliced.apply(lambda x: x[0][x[6]:x[6]+2],axis=1).value_counts()
     if pair_type == 'left':
-        df_spliced = df_spliced[(df_spliced.length1 > 4) & (df_spliced.length2 > 0)]
+        df_spliced = df_spliced[(df_spliced.length1 > 3) & (df_spliced.length2 > 0)]
         df_binding_pairs = df_spliced.apply(lambda x: x[0][x[6]-2:x[6]], axis=1).value_counts()  
     df_binding_pairs = pd.concat([df_binding_pairs,df_pairs_prob],axis=1)
     df_binding_pairs.columns = ['count','unspliced_frequency']
     if cell_line is not None:
-        df_binding_pairs.to_csv('binding_pair_' + cell_line + pair_type + '.csv')
+        df_binding_pairs.to_csv('binding_pair_' + cell_line + pair_type +str(length) +'.csv')
     else:
-        df_binding_pairs.to_csv('binding_pair_' + pair_type +'.csv')
+        df_binding_pairs.to_csv('binding_pair_' + pair_type +str(length)+'.csv')
 
-def binding_pair_properties(type,cell_line=None):
+def binding_pair_properties(type,cell_line=None,length=None):
     
     from matplotlib import rc
     rc('font', **{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
@@ -116,9 +121,9 @@ def binding_pair_properties(type,cell_line=None):
     
     df_new=pd.DataFrame(columns=['new','ratio'])
     if cell_line is not None:
-        df = pd.DataFrame.from_csv('binding_pair_'+cell_line+type+'.csv',index_col=None)
+        df = pd.DataFrame.from_csv('binding_pair_'+cell_line+type+str(length)+'.csv',index_col=None)
     else:
-        df = pd.DataFrame.from_csv('binding_pair_' + type + '.csv', index_col=None)
+        df = pd.DataFrame.from_csv('binding_pair_' + type +str(length)+ '.csv', index_col=None)
     df.columns = ['pair','count','unspliced_frequency']
     df.dropna(subset=['pair'],inplace=True)
     print(df)
@@ -145,20 +150,28 @@ def binding_pair_properties(type,cell_line=None):
     #df_new = df_new.unstack()
     #plt.imshow(df_new.unstack(),cmap='hot')
     fig, ax = plt.subplots()
-    heatmap = ax.pcolor(df_new)
+    heatmap = ax.pcolor(df_new,vmin=0.4,vmax=2)
     cbar = plt.colorbar(heatmap)
-    column_labels = list(df_new.index)
-    row_labels = list(df_new.columns)
+    column_labels = list(df_new.columns)
+    row_labels = list(df_new.index)
     ax.set_xticks(np.arange(df_new.shape[1]) + 0.5, minor=False)
     ax.set_yticks(np.arange(df_new.shape[0]) + 0.5, minor=False)
     ax.set_xticklabels(column_labels,minor=False)
     ax.set_yticklabels(row_labels, minor=False)
-    plt.xlabel('Second Residue')
-    plt.ylabel('First Residue')
-    plt.title('Pairs of Residues Left of Binding Site')
+    if type == 'left':
+        plt.xlabel('P1')
+        plt.ylabel('P2')
+        #plt.title('Pairs of Residues Left of Binding Site')
+    if type == 'centre':
+        plt.xlabel('P1\'')
+        plt.ylabel('P1')
+        #plt.title('Pairs of Residues  of Binding Site')
+    if type == 'right':
+        plt.xlabel('P2\'')
+        plt.ylabel('P1\'')
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
-    plt.savefig('writeup/images/binding_pairs_GRLCL_left.pdf')
+    plt.savefig('writeup/images/binding_pairs_'+type+'_'+str(cell_line)+'_'+str(length)+'.pdf')
     plt.show()
     
 def plot_single_residue_between_peptides():
@@ -193,6 +206,7 @@ def netchop_cleavage_predictions_spliced():
                                 right_on=['protein', 'position'], how='left')['cleavage']
     series_cleavage4 = pd.merge(df, df_chop[['protein', 'position', 'cleavage']], left_on=['protein', 'cleavage4'],
                                 right_on=['protein', 'position'], how='left')['cleavage']
+    print(series_cleavage1.count())
     df = pd.DataFrame([['cleavage1',series_cleavage1.value_counts(normalize=True)['S']],
                   ['cleavage2',series_cleavage2.value_counts(normalize=True)['S']],
                   ['cleavage3', series_cleavage3.value_counts(normalize=True)['S']],
@@ -223,12 +237,13 @@ def plot_netchop_cleavage_predictions():
     df = pd.merge(df_spliced,df_unspliced,on='site',how='outer')
     df.fillna(0,inplace=True)
     df.columns = ['site','spliced','unspliced']
+    print(df)
     df.plot(kind='bar',color=splice_colors,edgecolor='k')
     plt.xlabel('Cleavage Site')
-    plt.ylabel('Prediction Accuracy')
+    plt.ylabel('Positive Predictions')
     plt.yticks(np.arange(0,1.01,0.1))
     plt.xticks(np.arange(4),[1,2,3,4])
-    plt.title('NetChop Cleavage Predictions')
+    #plt.title('NetChop Cleavage Predictions')
     tikz_save('writeup/images/cleavages.tex',
               figureheight='\\figureheight',
               figurewidth='\\figurewidth')
@@ -377,86 +392,91 @@ def MHC_binding_positions():
     df_unspliced.drop_duplicates(['sequence'], inplace=True)
     df_unspliced.ic50 = df_unspliced.ic50.map(np.log)
     table=[]
-    df_all = pd.concat([df_spliced,df_unspliced])
-    std = pd.concat([df_spliced.ic50,df_unspliced.ic50]).std()
-    pooled_std = ((len(df_spliced)-1)*df_spliced.ic50.std()**2 + (len(df_unspliced)-1)*df_unspliced.ic50.std()**2)/(len(df_spliced)+len(df_unspliced)-2)
-    mean = pd.concat([df_spliced.ic50,df_unspliced.ic50]).mean()
-    for i in range(0,9):
-        for aa in aa_dict:
-            spliced_mean_with_aa = df_spliced[df_spliced.sequence.str[i]==aa].ic50.mean()
-            spliced_mean_without_aa = df_spliced[df_spliced.sequence.str[i]!=aa].ic50.mean()
-            unspliced_mean_with_aa = df_unspliced[df_unspliced.sequence.str[i]==aa].ic50.mean()
-            unspliced_mean_without_aa = df_unspliced[df_unspliced.sequence.str[i] != aa].ic50.mean()
-            d = ((unspliced_mean_without_aa-spliced_mean_without_aa)-(unspliced_mean_with_aa-spliced_mean_with_aa))/(2*std)
-            table.append([i+1,aa,d])
-    df = pd.DataFrame(table)
-    df.columns = ['position','aa','d']
-    print(df.sort_values('d'))
-    for i in range(0,9):
-        for aa in aa_dict:
-            spliced_with_aa = df_spliced[df_spliced.sequence.str[i] == aa]
-            spliced__without_aa = df_spliced[df_spliced.sequence.str[i] != aa]
-            pooled_std = ((len(spliced_with_aa.ic50) - 1) * spliced_with_aa.ic50.std() ** 2 + (
-            len(spliced__without_aa.ic50) - 1) * spliced__without_aa.ic50.std() ** 2) / (len(spliced_with_aa.ic50) + len(spliced__without_aa.ic50) - 2)
-            spliced_mean_with_aa = df_spliced[df_spliced.sequence.str[i]==aa].ic50.mean()
-            spliced_mean_without_aa = df_spliced[df_spliced.sequence.str[i]!=aa].ic50.mean()
-            d = (spliced_mean_with_aa-spliced_mean_without_aa)/(pooled_std)
-            table.append([i+1,aa,d])
-    df = pd.DataFrame(table)
-    df.columns = ['position','aa','d']
-    print(df.sort_values('d'))
+    unspliced_mean = df_unspliced.ic50.mean()
     
-    ssq_splicing = (df_spliced.ic50.mean()-mean)**2 + (df_unspliced.ic50.mean()-mean)**2
-    ssq_total = sum((df_all.ic50-mean)**2)
-    table=[]
+    spliced_count = df_spliced.shape[0]
     for i in range(0,9):
         for aa in aa_dict:
-            ssq_aa = (df_all[df_all.sequence.str[i] == aa].ic50.mean()-mean)**2 \
-            + (df_all[df_all.sequence.str[i] != aa].ic50.mean()-mean)**2
-            spliced_mean = df_spliced.ic50.mean()
-            unspliced_mean = df_unspliced.ic50.mean()
-            spliced_mean_with_aa = df_spliced[df_spliced.sequence.str[i]==aa].ic50.mean()
-            spliced_mean_without_aa = df_spliced[df_spliced.sequence.str[i]!=aa].ic50.mean()
-            unspliced_mean_with_aa = df_unspliced[df_unspliced.sequence.str[i] == aa].ic50.mean()
-            unspliced_mean_without_aa = df_unspliced[df_unspliced.sequence.str[i] != aa].ic50.mean()
-            ssq_w =  (sum((df_spliced[df_spliced.sequence.str[i]==aa].ic50 - spliced_mean_with_aa)**2) +
-                      sum((df_spliced[df_spliced.sequence.str[i] != aa].ic50 - spliced_mean_without_aa)**2) +
-                      sum((df_unspliced[df_unspliced.sequence.str[i] == aa].ic50 - unspliced_mean_with_aa)**2) +
-                      sum((df_unspliced[df_unspliced.sequence.str[i] != aa].ic50 - unspliced_mean_without_aa)**2))
-            ssq_i = ssq_total - ssq_w - ssq_aa -ssq_splicing
-            table.append([aa,i+1,ssq_i/ssq_total])
-    print(pd.DataFrame(table,columns = ['aa','pos','score']).sort_values('score'))
-    table = []
-    for i in range(0,9):
-        for aa in aa_dict:
-            spliced_mean_with_aa = df_spliced[df_spliced.sequence.str[i] == aa].ic50.mean()
-            spliced_mean_without_aa = df_spliced[df_spliced.sequence.str[i] != aa].ic50.mean()
-            ssq_w = (((df_spliced[df_spliced.sequence.str[i] == aa].ic50 - spliced_mean_with_aa)**2)+
-                   ((df_spliced[df_spliced.sequence.str[i] != aa].ic50 - spliced_mean_without_aa)**2))
-            ssq = ssq_total-ssq_w
-    for i in range(0,9):
-        for aa in aa_dict:
-            spliced = df_spliced[df_spliced.sequence.str[i]==aa]['ic50']
-            unspliced = df_unspliced[df_unspliced.sequence.str[i]==aa]['ic50']
-            measure = (spliced.mean() - unspliced.mean())/(spliced.append(unspliced).std())
-            new_measure = (spliced.mean()-mean)*(len(spliced)/df_spliced.shape[0]-len(unspliced)/df_unspliced.shape[0])
-            table.append([aa,i+1,measure,len(spliced),len(unspliced),new_measure])
-    df = pd.DataFrame(table)
-    df.columns = ['aa','position','effect size','count spliced','count unspliced','new measure']
-    df.sort_values('effect size',inplace=True)
-    df.sort_values('new measure',inplace=True)
-    print(df)
-    #df['lower difference'] = df['spliced lower'] - df['unspliced lower']
-    #df = df.sort_values('lower difference')
+            measure = (df_spliced[df_spliced.sequence.str[i]==aa].ic50.mean() - unspliced_mean)*(df_spliced[df_spliced.sequence.str[i]==aa].shape[0]/spliced_count)
+            p = df_spliced[df_spliced.sequence.str[i]==aa].ic50.mean()
+            count = df_spliced[df_spliced.sequence.str[i]==aa].ic50.count()
+            proportion = count/df_spliced.ic50.count()
+            table.append([aa,i+1,p,proportion])
+    table = pd.DataFrame(table,columns=['aa','pos','p','proportion'])
+    print(table.sort_values('p'))
+    
+def hydrophobicity_index_for_fragments(d):
+    df = pd.DataFrame.from_csv('training_data/training_data_with_cleavage_positive.csv')
+    df['peptide'] = df.loc[:,'seq_1':'seq_9'].sum(axis=1)
+    df['peptide1'] = [y[0:x] for x,y in zip(df.length1,df.peptide)]
+    df.peptide1 = df.peptide1.apply(lambda x: ''.join([d[x[i]] for i in range(0,len(x))]))
+    df['peptide2'] = [y[x:9] for x, y in zip(df.length1, df.peptide)]
+    df.peptide2 = df.peptide2.apply(lambda x: ''.join([d[x[i]] for i in range(0, len(x))]))
+    df2 = pd.DataFrame.from_csv('all_spliced_peptides_unambiguous_with_cell_lines.csv')
+    df2.peptide = df2.peptide.apply(lambda x: ''.join([d[x[i]] for i in range(0, len(x))]))
+    for key in set(d.values()):
+        print(key,df.peptide1.str.count(key).mean()/df.peptide1.str.len().mean(),
+            df.peptide2.str.count(key).mean()/df.peptide2.str.len().mean(),
+              df2.peptide.str.count(key).mean()/df2.peptide.str.len().mean())
+        
+def compare_cleaved_with_spliced(d):
+    df = pd.DataFrame.from_csv('training_data/training_data_with_cleavage_positive.csv')
+    df = df[['cleavage2_2','binding2_2','cleavage3_2','binding1_2']].dropna()
+    df[['cleavage2_2','binding2_2']] = df[['cleavage2_2','binding2_2']].applymap(lambda x: d[x])
+    df[['cleavage3_2', 'binding1_2']] = df[['cleavage3_2', 'binding1_2']].applymap(lambda x: d[x])
+    df_aa = pd.concat([pd.DataFrame.from_dict(aa_dict,orient='index'),pd.DataFrame.from_dict(d,orient='index')],axis=1)
+    df_aa.columns = ['frequency','type']
+    df_aa = df_aa.groupby('type').sum()
+    print(df_aa)
+    df_comb = pd.DataFrame()
+    for i in df_aa.index:
+        for j in df_aa.index:
+            df_comb = df_comb.append([[i+j,df_aa[df_aa.index ==i].frequency[0]*df_aa[df_aa.index ==j].frequency[0]]])
+    print(df_comb.set_index(0).sort_values(1,ascending=False))
+    print((df['cleavage2_2']+df['binding2_2']).value_counts(normalize=True))
+    print((df['cleavage3_2'] + df['binding1_2']).value_counts(normalize=True))
+    df = pd.concat([df_comb.set_index(0).sort_values(1,ascending=False),(df['cleavage2_2']+df['binding2_2']).value_counts(normalize=True),
+                    (df['cleavage3_2'] + df['binding1_2']).value_counts(normalize=True)],axis=1)
+    df.columns = ['expected','cterm','nterm']
+    print(df.sort_values('expected'))
+    
+def compare_cleavage_residues(direction,position,residues=None):
+    df_spliced = pd.DataFrame.from_csv('training_data/training_data_with_cleavage_positive.csv')
+    df_unspliced = pd.DataFrame.from_csv('all_unspliced_peptides_with_cleavage.csv')
+    df_aa = pd.DataFrame.from_dict(aa_dict, orient='index')
+    if direction == 'right':
+        df = pd.concat([df_spliced['cleavage2_'+str(position)].value_counts(normalize=True),
+                                  df_spliced['cleavage4_'+str(position)].value_counts(normalize=True),
+                                  df_unspliced['cleavage4_'+str(position)].value_counts(normalize=True),
+                                  df_aa],axis=1)
+    if direction == 'left':
+        df = pd.concat([df_spliced['cleavage1_' + str(position)].value_counts(normalize=True),
+                        df_spliced['cleavage3_' + str(position)].value_counts(normalize=True),
+                        df_unspliced['cleavage1_' + str(position)].value_counts(normalize=True),
+                        df_aa], axis=1)
+    df.columns = ['N-terminal splice reactant','C-terminal splice reactant','Nonspliced','Proteome']
+    if residues is not None:
+        df = df.loc[residues]
+    df.plot(kind='bar',edgecolor='k',legend=None)
+    plt.xlabel('Residue')
+    plt.ylabel('Frequency')
+    plt.yticks(np.arange(0, 0.121, 0.02))
+    tikz_save('writeup/images/'+direction+'_cleavages.tex',
+              figureheight='\\figureheight',
+              figurewidth='\\figurewidth')
+    plt.show()
         
      
         
 
 #plot_netchop_cleavage_predictions()
 #plot_9mer_sequence2(cell_line='C1R')
-#plot_all_9mers('GRLCL')
-#generate_binding_pairs('left','GRLCL')
-binding_pair_properties('left','GRLCL')
+#plot_all_9mers('C1R')
+generate_binding_pairs('left',cell_line='C1R')
+binding_pair_properties('left',cell_line='C1R')
 #plot_single_residue_between_peptides()
 #peptide_to_cleavage_comparison()
 #MHC_binding_positions()
+#hydrophobicity_index_for_fragments(aa_dict_size)
+#compare_cleaved_with_spliced(aa_dict_charge)
+#compare_cleavage_residues('right',1,['G','K','L','P','S'])

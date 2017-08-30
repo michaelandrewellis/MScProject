@@ -1,0 +1,20 @@
+\contentsline {section}{Introduction}{4}{section*.1}
+\contentsline {section}{Materials and Methods}{5}{figure.caption.6}
+\contentsline {subsection}{Dataset}{5}{section*.7}
+\contentsline {subsection}{Classifer Architecture}{6}{table.caption.9}
+\contentsline {section}{Results}{7}{figure.caption.11}
+\contentsline {subsection}{Properties of Spliced Peptides}{7}{section*.12}
+\contentsline {subsection}{Cleavage Sites}{8}{figure.caption.16}
+\contentsline {subsubsection}{Residue Frequencies}{8}{section*.17}
+\contentsline {subsection}{NetChop Evaluation}{8}{figure.caption.20}
+\contentsline {subsection}{Validation of Proposed Splicing Rules}{9}{figure.caption.22}
+\contentsline {subsection}{Predicting Spliced Peptides}{11}{figure.caption.27}
+\contentsline {subsubsection}{Predicting Spliced Peptides}{12}{table.caption.29}
+\contentsline {subsubsection}{Predicting Spliced Peptides}{12}{table.caption.31}
+\contentsline {subsubsection}{Predicting Spliced Peptides}{12}{section*.32}
+\contentsline {subsubsection}{Predicting Spliced Peptides}{13}{figure.caption.35}
+\contentsline {section}{Discussion}{14}{table.caption.41}
+\contentsline {section}{Appendices}{16}{section*.44}
+\contentsline {section}{\numberline {A}Programming Appendix}{16}{Appendix.a.A}
+\contentsline {section}{\numberline {B}Table Appendix}{17}{Appendix.a.B}
+\contentsline {section}{\numberline {C}Graph Appendix}{17}{Appendix.a.C}

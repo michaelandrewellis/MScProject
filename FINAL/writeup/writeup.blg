@@ -1,0 +1,53 @@
+This is BibTeX, Version 0.99d (TeX Live 2015/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: writeup.aux
+The style file: ieeetr.bst
+Case mismatch error between cite keys mishto2012 and Mishto2012
+---line 57 of file writeup.aux
+ : \citation{mishto2012
+ :                     }
+I'm skipping whatever remains of this command
+Database file #1: /home/michael/Documents/bibtex/MScProject.bib.bib
+Warning--I didn't find a database entry for "Nielsen2016"
+You've used 19 entries,
+            1876 wiz_defined-function locations,
+            626 strings with 9413 characters,
+and the built_in function-call counts, 7093 in all, are:
+= -- 646
+> -- 454
+< -- 0
++ -- 158
+- -- 139
+* -- 616
+:= -- 1064
+add.period$ -- 18
+call.type$ -- 19
+change.case$ -- 19
+chr.to.int$ -- 0
+cite$ -- 19
+duplicate$ -- 294
+empty$ -- 509
+format.name$ -- 139
+if$ -- 1635
+int.to.chr$ -- 0
+int.to.str$ -- 19
+missing$ -- 18
+newline$ -- 60
+num.names$ -- 18
+pop$ -- 27
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 271
+stack$ -- 0
+substring$ -- 511
+swap$ -- 160
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 0
+while$ -- 68
+width$ -- 21
+write$ -- 190
+(There was 1 error message)

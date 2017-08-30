@@ -11,12 +11,13 @@ from sklearn.svm import SVC
 import pickle
 
 from matplotlib import pyplot as plt
+from matplotlib2tikz import save as tikz_save
 from sklearn.model_selection import StratifiedKFold
 from sklearn.feature_selection import RFECV
 
-allele = 'GRLCL'
-positive_data = 'training_data/training_data_with_cleavage_positive_GRLCL.csv'
-negative_data = 'training_data/training_data_with_cleavage_negative.csv'
+allele = 'B4002'
+positive_data = 'training_data/training_data_with_binding_positive_B4002.csv'
+negative_data = 'training_data/training_data_with_binding_negative_B4002.csv'
 
 def setup_data():
     # load data and set output values
@@ -33,16 +34,20 @@ def setup_data():
     y = X['output']
     X[['length1','distance']] = X[['length1','distance']].applymap(str)
     X.drop('output',axis=1,inplace=True)
-    X = pd.get_dummies(X, dummy_na=True)
+    if 'ic50' in X.columns:
+        ic50 = X.ic50
+        X=pd.get_dummies(X.drop('ic50',axis=1),dummy_na=True)
+        X['ic50'] = ic50.map(lambda x: 1-(np.log(x)/np.log(ic50.max())))
+    else:
+        X = pd.get_dummies(X, dummy_na=True)
     
     # save columns to be able to recreate shape of data
     with open('columns/'+allele+'.txt','w') as f:
         for col in X.columns:
             f.write(col+'\n')
 
-    X, X_test, y, y_test = train_test_split(X, y,test_size=0.2)
-    #X_train, X_validation, y_train, y_validation = train_test_split(X, y,test_size=0.2)
-    return(X,y,X_test,y_test)
+    X_train, X_test, y_train, y_test = train_test_split(X, y,test_size=0.2)
+    return(X_train,y_train,X_test,y_test)
 
 def train_test():
     X_train, y_train,X_test, y_test = setup_data()
@@ -50,16 +55,16 @@ def train_test():
                                          {'max_features':[5,10,20,50,100,200,None],
                                           'n_estimators': [1000], 
                                           'n_jobs':[-1]})
+    rf_results.to_csv('classifier_results/' + allele + '_rf.csv')
     nn,nn_results,nn_score = tune_parameters(X_train,y_train,MLPClassifier(),
                                          {'hidden_layer_sizes':[5,10,20,50],
                                           'activation':['identity', 'logistic', 'tanh', 'relu'],
                                           'max_iter':[1000]})
+    nn_results.to_csv('classifier_results/' + allele + '_nn.csv')
     svm,svm_results,svm_score = tune_parameters(X_train,y_train,SVC(), 
                                            {'C':[0.1,1,10],
                                             'kernel': ['linear', 'poly', 'rbf'],
                                             'probability':[False]})
-    rf_results.to_csv('classifier_results/'+allele+'_rf.csv')
-    nn_results.to_csv('classifier_results/'+allele+'_nn.csv')
     svm_results.to_csv('classifier_results/'+allele+'_svm.csv')
     performance = []
     for model,name in zip([rf,nn,svm],['Random Forest','Neural Network','SVM']):
@@ -73,7 +78,7 @@ def train_test():
     pd.DataFrame(performance).to_csv('classifier_results/'+allele+'_test.csv')
     
 def tune_parameters(X,y,model,params):
-    clf = GridSearchCV(model,params)
+    clf = GridSearchCV(model,params,scoring='f1')
     clf.fit(X,y)
     rf_results = pd.DataFrame(clf.cv_results_)
     return(clf.best_estimator_,rf_results,clf.best_score_)
@@ -102,8 +107,11 @@ def feature_selection():
         print(x, y)   
     plt.figure()
     plt.xlabel("Number of features selected")
-    plt.ylabel("Cross validation score (nb of correct classifications)")
+    plt.ylabel("Cross validation score (f1)")
     plt.plot(range(1, len(rfecv.grid_scores_)*20 + 1,20), rfecv.grid_scores_)
+    tikz_save('writeup/images/feature_selection_2.tex',
+              figureheight='\\figureheight',
+              figurewidth='\\figurewidth')
     plt.show()
 
 def fix_columns(df,allele):
@@ -130,7 +138,7 @@ def test_invented_binders(allele):
     clf = pickle.load(open('classifiers/'+allele+'.pickle','rb'))
     y_pred = clf.predict(X)
     y_true = [0]*len(y_pred)
-    print(accuracy_score(y_true,y_pred))
+    print(confusion_matrix(y_true,y_pred))
 
 def test_general_classifier():
     df = pd.DataFrame.from_csv('training_data/training_data_with_cleavage_positive_C1R.csv')
